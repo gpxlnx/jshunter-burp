@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-JSHunter  Extension
+JSHunter Extension - Semgrep Version
 Author: iamunixtz
-Version: 2.0.0
+Version: 2.1.0
 Date: 2025
 
 A extension that automatically detects JavaScript URLs from HTTP requests,
-scans them using JSHunter, and sends findings to Telegram.
+scans them using Semgrep, and sends findings to Telegram.
 """
 
 import json
@@ -30,6 +30,7 @@ except ImportError:
 # Use Java's built-in HTTP capabilities instead of Python requests
 from java.net import URL, HttpURLConnection
 from java.io import BufferedReader, InputStreamReader, OutputStreamWriter
+from java.awt import Color
 
 # Burp Suite API imports
 from burp import IBurpExtender, IHttpListener, ITab
@@ -57,7 +58,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         self._helpers = callbacks.getHelpers()
         
         # Set extension name
-        callbacks.setExtensionName("JSHunter - JavaScript Security Scanner")
+        callbacks.setExtensionName("JSHunter - Semgrep Version")
         
         # Register HTTP listener
         callbacks.registerHttpListener(self)
@@ -82,8 +83,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         callbacks.addSuiteTab(self)
         
         # Print startup message
-        print("JSHunter Burp Extension loaded successfully!")
-        print("Version: 2.0.0")
+        print("JSHunter Burp Extension (Semgrep Version) loaded successfully!")
+        print("Version: 2.1.0")
         print("Author: iamunixtz")
         print("Date: 2025")
         
@@ -202,30 +203,36 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         self._send_to_telegram_checkbox.addActionListener(SendToTelegramListener(self))
         panel.add(self._send_to_telegram_checkbox, gbc)
         
-        # TruffleHog Path
-        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 1
-        panel.add(JLabel("TruffleHog Path:"), gbc)
-        gbc.gridx = 1; gbc.gridy = 4; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL
-        self._trufflehog_path_field = JTextField(50)
-        self._trufflehog_path_field.setText("/usr/local/bin/trufflehog")  # Default path
-        panel.add(self._trufflehog_path_field, gbc)
+        # Scope information
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 3
+        self._scope_info_label = JLabel("Scope: Extension respects Burp Suite scope settings")
+        self._scope_info_label.setForeground(Color.BLUE)
+        panel.add(self._scope_info_label, gbc)
         
-        # Browse button for TruffleHog path
-        gbc.gridx = 2; gbc.gridy = 4; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE
-        self._browse_trufflehog_button = JButton("Browse")
-        self._browse_trufflehog_button.addActionListener(BrowseTruffleHogListener(self))
-        panel.add(self._browse_trufflehog_button, gbc)
+        # Semgrep Path
+        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 1
+        panel.add(JLabel("Semgrep Path:"), gbc)
+        gbc.gridx = 1; gbc.gridy = 5; gbc.weightx = 1.0; gbc.fill = GridBagConstraints.HORIZONTAL
+        self._semgrep_path_field = JTextField(50)
+        self._semgrep_path_field.setText("/home/gxavier/.local/bin/semgrep")  # Default path
+        panel.add(self._semgrep_path_field, gbc)
         
-        # Test TruffleHog button
-        gbc.gridx = 3; gbc.gridy = 4; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE
-        self._test_trufflehog_button = JButton("Test")
-        self._test_trufflehog_button.addActionListener(TestTruffleHogListener(self))
-        panel.add(self._test_trufflehog_button, gbc)
+        # Browse button for Semgrep path
+        gbc.gridx = 2; gbc.gridy = 5; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE
+        self._browse_semgrep_button = JButton("Browse")
+        self._browse_semgrep_button.addActionListener(BrowseSemgrepListener(self))
+        panel.add(self._browse_semgrep_button, gbc)
         
-        # TruffleHog status
-        gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 3
-        self._trufflehog_status_label = JLabel("TruffleHog: Not tested")
-        panel.add(self._trufflehog_status_label, gbc)
+        # Test Semgrep button
+        gbc.gridx = 3; gbc.gridy = 5; gbc.weightx = 0; gbc.fill = GridBagConstraints.NONE
+        self._test_semgrep_button = JButton("Test")
+        self._test_semgrep_button.addActionListener(TestSemgrepListener(self))
+        panel.add(self._test_semgrep_button, gbc)
+        
+        # Semgrep status
+        gbc.gridx = 0; gbc.gridy = 6; gbc.gridwidth = 3
+        self._semgrep_status_label = JLabel("Semgrep: Not tested")
+        panel.add(self._semgrep_status_label, gbc)
         
         return panel
     
@@ -269,7 +276,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         panel.setPreferredSize(Dimension(400, 300))
         
         # Findings table model
-        findings_columns = ["Type", "Secret", "URL", "Line", "Verified"]
+        findings_columns = ["Type", "Secret", "URL", "Line", "Severity"]
         self._findings_table_model = DefaultTableModel(findings_columns, 0)
         self._findings_table = JTable(self._findings_table_model)
         self._findings_table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
@@ -279,7 +286,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         self._findings_table.getColumnModel().getColumn(1).setPreferredWidth(200)  # Secret
         self._findings_table.getColumnModel().getColumn(2).setPreferredWidth(150)  # URL
         self._findings_table.getColumnModel().getColumn(3).setPreferredWidth(50)   # Line
-        self._findings_table.getColumnModel().getColumn(4).setPreferredWidth(60)   # Verified
+        self._findings_table.getColumnModel().getColumn(4).setPreferredWidth(60)   # Severity
         
         # Add scroll pane
         scroll_pane = JScrollPane(self._findings_table)
@@ -332,13 +339,23 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             request_info = self._helpers.analyzeRequest(messageInfo)
             url = request_info.getUrl().toString()
             
+            # Check if URL is in scope
+            if not self._is_url_in_scope(url):
+                self._log_message("Main URL out of scope, skipping: " + url)
+                return
+                
             # Extract JavaScript URLs from the request
             js_urls = self._extract_javascript_urls(messageInfo)
             
             for js_url in js_urls:
+                # Check if JavaScript URL is also in scope
+                if not self._is_url_in_scope(js_url):
+                    self._log_message("JavaScript URL out of scope, skipping: " + js_url)
+                    continue
+                    
                 if js_url not in self._scanned_urls:
                     self._scanned_urls.put(js_url, True)
-                    self._log_message("Found JavaScript URL: " + js_url)
+                    self._log_message("Found JavaScript URL (in scope): " + js_url)
                     
                     # Schedule scan in background
                     thread = threading.Thread(target=self._scan_javascript_url, args=(js_url,))
@@ -435,8 +452,28 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         except:
             return None
     
+    def _is_url_in_scope(self, url):
+        """Check if URL is in Burp Suite scope."""
+        try:
+            # Convert string URL to Java URL object for Burp's scope checking
+            from java.net import URL
+            java_url = URL(url)
+            in_scope = self._callbacks.isInScope(java_url)
+            self._log_message("Scope check for " + url + ": " + str(in_scope))
+            
+            # TEMPORARY: Allow localhost and local IP for testing
+            if url.startswith("http://172.17.171.42:8000") or url.startswith("http://localhost:8000"):
+                self._log_message("Temporarily allowing local test URL: " + url)
+                return True
+                
+            return in_scope
+        except Exception as e:
+            self._log_message("Error checking scope for URL " + url + ": " + str(e))
+            # If scope checking fails, assume URL is in scope to avoid missing legitimate targets
+            return True
+    
     def _scan_javascript_url(self, url):
-        """Scan a JavaScript URL using TruffleHog directly."""
+        """Scan a JavaScript URL using Semgrep."""
         self._log_message("Scanning JavaScript URL: " + url)
         
         result = {
@@ -448,11 +485,11 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         }
         
         try:
-            # Get TruffleHog binary path
-            tr_bin = self._get_trufflehog_binary()
-            if not tr_bin:
-                result['error'] = "TruffleHog binary not found. Please install TruffleHog."
-                self._log_message("TruffleHog binary not found")
+            # Get Semgrep binary path
+            semgrep_bin = self._get_semgrep_binary()
+            if not semgrep_bin:
+                result['error'] = "Semgrep binary not found. Please install Semgrep."
+                self._log_message("Semgrep binary not found")
                 self._add_result_to_table(result)
                 return result
             
@@ -472,11 +509,21 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
                 return result
             
             try:
-                # Run TruffleHog on the file
-                findings = self._run_trufflehog(temp_file, tr_bin)
+                # Run Semgrep on the file
+                findings = self._run_semgrep(temp_file, semgrep_bin)
                 result['findings'] = findings
                 result['success'] = True
-                self._log_message("Scan completed successfully for: " + url + " - " + str(len(findings)) + " findings")
+                if findings:
+                    self._log_message("Scan completed successfully for: " + url + " - " + str(len(findings)) + " findings")
+                else:
+                    self._log_message("Scan completed successfully for: " + url + " - 0 findings (no secrets detected)")
+                
+                # Extract secret values before cleaning up temp file
+                for finding in findings:
+                    if not finding.get('extra', {}).get('raw', ''):
+                        raw_value = self._extract_secret_from_finding(finding, url)
+                        if raw_value != "Secret value not available":
+                            finding['extra']['raw'] = raw_value
                 
                 # Send to Telegram if enabled
                 if self._send_to_telegram_enabled and findings:
@@ -495,8 +542,9 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             result['error'] = str(e)
             self._log_message("Error scanning " + url + ": " + str(e))
         
-        # Add result to table
-        self._add_result_to_table(result)
+        # Add result to table only if there are findings or if there was an error
+        if result['findings'] or result['error']:
+            self._add_result_to_table(result)
         
         # Add findings to findings table
         if result['success'] and result['findings']:
@@ -518,61 +566,119 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
         except Exception as e:
             self._log_message("Error during temp file cleanup: " + str(e))
     
+    def _extract_secret_from_finding(self, finding, source_url):
+        """Extract the actual secret value from the file content based on finding location."""
+        try:
+            # Get the file path from the finding
+            file_path = finding.get('path', '')
+            self._log_message("Extracting secret from file: " + file_path)
+            
+            if not file_path or not os.path.exists(file_path):
+                self._log_message("File not found: " + file_path)
+                return "Secret value not available"
+            
+            # Get line and column information
+            start_line = finding.get('start', {}).get('line', 0)
+            start_col = finding.get('start', {}).get('col', 0)
+            end_line = finding.get('end', {}).get('line', 0)
+            end_col = finding.get('end', {}).get('col', 0)
+            
+            self._log_message("Finding location - Line: " + str(start_line) + ", Col: " + str(start_col) + "-" + str(end_col))
+            
+            # Read the file content
+            with io.open(file_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            
+            if start_line > 0 and start_line <= len(lines):
+                line_content = lines[start_line - 1]  # Semgrep uses 1-based line numbers
+                self._log_message("Line content: " + line_content.strip())
+                
+                # Extract the secret value based on column positions
+                if start_col > 0 and end_col > 0 and end_col <= len(line_content):
+                    secret_value = line_content[start_col-1:end_col-1].strip()
+                    # Remove quotes if present
+                    secret_value = secret_value.strip('"\'')
+                    self._log_message("Extracted secret (by columns): " + secret_value)
+                    return secret_value
+                else:
+                    # Fallback: try to extract quoted strings
+                    quoted_match = re.search(r'["\']([^"\']+)["\']', line_content)
+                    if quoted_match:
+                        secret_value = quoted_match.group(1)
+                        self._log_message("Extracted secret (by regex): " + secret_value)
+                        return secret_value
+            
+            self._log_message("Could not extract secret value")
+            return "Secret value not available"
+            
+        except Exception as e:
+            self._log_message("Error extracting secret value: " + str(e))
+            return "Secret value not available"
+    
     def _add_findings_to_table(self, findings, source_url):
         """Add findings to the findings details table."""
         for finding in findings:
-            detector_name = finding.get('DetectorName', 'Unknown')
-            raw_value = finding.get('Raw', '')
-            verified = finding.get('Verified', False)
-            line_number = finding.get('SourceMetadata', {}).get('Data', {}).get('Filesystem', {}).get('line', 0)
+            rule_id = finding.get('check_id', 'Unknown')
+            raw_value = finding.get('extra', {}).get('raw', '')
+            severity = finding.get('extra', {}).get('severity', 'UNKNOWN')
+            line_number = finding.get('start', {}).get('line', 0)
+            
+            # If raw_value is empty, try to extract from the file content
+            if not raw_value:
+                raw_value = self._extract_secret_from_finding(finding, source_url)
             
             # Truncate long secrets for display
             display_secret = raw_value[:50] + "..." if len(raw_value) > 50 else raw_value
             
             # Add row to findings table
-            row = [detector_name, display_secret, source_url, str(line_number), "Yes" if verified else "No"]
+            row = [rule_id, display_secret, source_url, str(line_number), severity]
             self._findings_table_model.addRow(row)
     
-    def _get_trufflehog_binary(self):
-        """Get TruffleHog binary path from user configuration using official PortSwigger method."""
+    def _get_semgrep_binary(self):
+        """Get Semgrep binary path from user configuration."""
         # Get path from UI field
-        configured_path = self._trufflehog_path_field.getText().strip()
-        self._log_message("Checking TruffleHog path: " + configured_path)
+        configured_path = self._semgrep_path_field.getText().strip()
+        self._log_message("Checking Semgrep path: " + configured_path)
         
         if not configured_path:
-            self._log_message("No TruffleHog path configured")
+            self._log_message("No Semgrep path configured")
             return None
         
-        # Use the official PortSwigger verification method
-        if self._verify_trufflehog_path(configured_path):
-            self._log_message("TruffleHog binary validated successfully")
+        # Verify Semgrep path
+        if self._verify_semgrep_path(configured_path):
+            self._log_message("Semgrep binary validated successfully")
             return configured_path
         else:
-            self._log_message("TruffleHog binary validation failed")
+            self._log_message("Semgrep binary validation failed")
             return None
     
-    def _verify_trufflehog_path(self, path):
-        """Verify TruffleHog path using official PortSwigger method."""
+    def _verify_semgrep_path(self, path):
+        """Verify Semgrep path."""
         if not path or not os.path.isabs(path) or not os.access(path, os.X_OK):
-            self._log_message("TruffleHog path validation failed: not absolute or not executable")
+            self._log_message("Semgrep path validation failed: not absolute or not executable")
             return False
         try:
-            self._log_message("Testing TruffleHog binary: " + path)
+            self._log_message("Testing Semgrep binary: " + path)
             proc = subprocess.Popen([path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             stdout_data, stderr_data = proc.communicate()
-            self._log_message("TruffleHog test - stdout: " + stdout_data.decode('utf-8', errors='ignore').strip() + 
+            self._log_message("Semgrep test - stdout: " + stdout_data.decode('utf-8', errors='ignore').strip() + 
                             ", stderr: " + stderr_data.decode('utf-8', errors='ignore').strip())
             
-            # Check if "trufflehog" appears in either stdout or stderr
-            combined_output = (stderr_data.lower() + stdout_data.lower())
-            if b"trufflehog" in combined_output:
-                self._log_message("TruffleHog binary found in output")
-                return True
+            # Check if process completed successfully and returned version info
+            if proc.returncode == 0:
+                # Check if output contains version number (e.g., "1.139.0")
+                combined_output = (stderr_data + stdout_data).decode('utf-8', errors='ignore')
+                if re.search(r'\d+\.\d+\.\d+', combined_output):
+                    self._log_message("Semgrep binary validated successfully - version found")
+                    return True
+                else:
+                    self._log_message("Semgrep binary validation failed - no version found")
+                    return False
             else:
-                self._log_message("TruffleHog binary not found in output")
+                self._log_message("Semgrep binary validation failed - non-zero exit code: " + str(proc.returncode))
                 return False
         except Exception as e:
-            self._log_message("Error testing TruffleHog binary: " + str(e))
+            self._log_message("Error testing Semgrep binary: " + str(e))
             return False
     
     def _download_js_file(self, url):
@@ -582,7 +688,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             url_obj = URL(url)
             connection = url_obj.openConnection()
             connection.setRequestMethod("GET")
-            connection.setRequestProperty("User-Agent", "JSHunter-Burp-Extension/1.0")
+            connection.setRequestProperty("User-Agent", "JSHunter-Burp-Extension/2.1.0")
             connection.setConnectTimeout(10000)  # 10 seconds
             connection.setReadTimeout(30000)     # 30 seconds
             
@@ -627,10 +733,10 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             self._log_message("Error creating temp file: " + str(e))
             return None
     
-    def _run_trufflehog(self, file_path, tr_bin):
-        """Run TruffleHog on a file and return findings."""
+    def _run_semgrep(self, file_path, semgrep_bin):
+        """Run Semgrep on a file and return findings."""
         try:
-            cmd = [tr_bin, "filesystem", file_path, "--json", "--no-update"]
+            cmd = [semgrep_bin, "--config=p/secrets", "--json", file_path]
             # Use Popen for Python 2.7 compatibility
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
@@ -650,23 +756,22 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
                 signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
 
                 # --- DEBUG LOGGING ---
-                self._log_message("TruffleHog stdout: " + stdout_data.strip())
-                self._log_message("TruffleHog stderr: " + stderr_data.strip())
-                self._log_message("TruffleHog return code: " + str(proc.returncode))
+                self._log_message("Semgrep stdout: " + stdout_data.strip())
+                self._log_message("Semgrep stderr: " + stderr_data.strip())
+                self._log_message("Semgrep return code: " + str(proc.returncode))
                 # --- END DEBUG LOGGING ---
                 
                 if proc.returncode == 0:
-                    findings = []
-                    for line in stdout_data.strip().split('\n'):
-                        if line.strip():
-                            try:
-                                finding = json.loads(line)
-                                findings.append(finding)
-                            except ValueError:  # json.JSONDecodeError in Python 2.7
-                                continue
-                    return findings
+                    try:
+                        # Parse JSON output
+                        json_output = json.loads(stdout_data)
+                        findings = json_output.get('results', [])
+                        return findings
+                    except ValueError:
+                        self._log_message("Error parsing Semgrep JSON output")
+                        return []
                 else:
-                    self._log_message("TruffleHog error: " + stderr_data)
+                    self._log_message("Semgrep error: " + stderr_data)
                     return []
                     
             except Exception as timeout_error:
@@ -674,13 +779,13 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
                 signal.signal(signal.SIGALRM, old_handler)  # Restore old handler
                 proc.terminate()
                 if "Timeout" in str(timeout_error):
-                    self._log_message("TruffleHog timeout for file: " + file_path)
+                    self._log_message("Semgrep timeout for file: " + file_path)
                 else:
-                    self._log_message("TruffleHog execution error: " + str(timeout_error))
+                    self._log_message("Semgrep execution error: " + str(timeout_error))
                 return []
                 
         except Exception as e:
-            self._log_message("TruffleHog execution error: " + str(e))
+            self._log_message("Semgrep execution error: " + str(e))
             return []
     
     def _send_to_telegram(self, result):
@@ -691,37 +796,53 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             return
             
         try:
-            verified_findings = [f for f in result['findings'] if f.get('Verified', False)]
-            unverified_findings = [f for f in result['findings'] if not f.get('Verified', False)]
+            # Group findings by severity
+            high_severity = [f for f in result['findings'] if f.get('extra', {}).get('severity') == 'ERROR']
+            medium_severity = [f for f in result['findings'] if f.get('extra', {}).get('severity') == 'WARNING']
+            low_severity = [f for f in result['findings'] if f.get('extra', {}).get('severity') == 'INFO']
             
-            if verified_findings:
-                self._send_findings_to_telegram(verified_findings, result['url'], True)
+            if high_severity:
+                self._send_findings_to_telegram(high_severity, result['url'], "HIGH")
             
-            if unverified_findings:
-                self._send_findings_to_telegram(unverified_findings, result['url'], False)
+            if medium_severity:
+                self._send_findings_to_telegram(medium_severity, result['url'], "MEDIUM")
+            
+            if low_severity:
+                self._send_findings_to_telegram(low_severity, result['url'], "LOW")
                 
         except Exception as e:
             self._log_message("Error sending to Telegram: " + str(e))
     
-    def _send_findings_to_telegram(self, findings, source_url, verified):
+    def _send_findings_to_telegram(self, findings, source_url, severity):
         """Send findings to Telegram, splitting messages if they are too long."""
         
         # Telegram API has a message length limit of 4096 characters.
         # We set a slightly lower limit to be safe.
         MESSAGE_LIMIT = 4000
         
-        base_message = u"\U0001F534 *[VERIFIED] Verified Secrets*\n" if verified else u"\U0001F7E1 *[UNVERIFIED] Unverified Secrets*\n"
+        # Choose emoji based on severity
+        severity_emoji = {
+            "HIGH": u"\U0001F534",    # Red circle
+            "MEDIUM": u"\U0001F7E1",  # Yellow circle
+            "LOW": u"\U0001F7E2"      # Green circle
+        }
+        
+        base_message = severity_emoji.get(severity, u"\U0001F534") + " *[" + severity + "] Secrets Detected*\n"
         base_message += "Found in: `" + source_url + "`\n\n"
         
         current_message = base_message
         
         for i, finding in enumerate(findings):
-            detector_name = finding.get('DetectorName', 'Unknown')
-            raw_value = finding.get('Raw', '')
-            line_number = finding.get('SourceMetadata', {}).get('Data', {}).get('Filesystem', {}).get('line', 0)
+            rule_id = finding.get('check_id', 'Unknown')
+            raw_value = finding.get('extra', {}).get('raw', '')
+            line_number = finding.get('start', {}).get('line', 0)
+            
+            # If raw_value is empty, try to extract from the file content
+            if not raw_value:
+                raw_value = self._extract_secret_from_finding(finding, source_url)
             
             finding_text = ""
-            finding_text += "*" + detector_name + "*\n"
+            finding_text += "*" + rule_id + "*\n"
             finding_text += "```\n" + raw_value + "\n```\n"
             if line_number > 0:
                 finding_text += "Line: " + str(line_number) + "\n"
@@ -780,7 +901,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             
             payload = {
                 "chat_id": chat_id,
-                "text": u"\U0001F916 *JSHunter Test Message*\n\nThis is a test message from JSHunter Burp Extension. If you receive this, your Telegram configuration is correct!",
+                "text": u"\U0001F916 *JSHunter Semgrep Test Message*\n\nThis is a test message from JSHunter Burp Extension (Semgrep Version). If you receive this, your Telegram configuration is correct!",
                 "parse_mode": "Markdown"
             }
             
@@ -797,65 +918,65 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             JOptionPane.showMessageDialog(self._main_panel, "Error testing Telegram: " + str(e), "Error", JOptionPane.ERROR_MESSAGE)
             self._log_message("Error testing Telegram: " + str(e))
     
-    def _test_trufflehog(self):
-        """Test TruffleHog binary."""
-        trufflehog_path = self._trufflehog_path_field.getText().strip()
-        if not trufflehog_path:
-            JOptionPane.showMessageDialog(self._main_panel, "Please enter a TruffleHog path", "Error", JOptionPane.ERROR_MESSAGE)
+    def _test_semgrep(self):
+        """Test Semgrep binary."""
+        semgrep_path = self._semgrep_path_field.getText().strip()
+        if not semgrep_path:
+            JOptionPane.showMessageDialog(self._main_panel, "Please enter a Semgrep path", "Error", JOptionPane.ERROR_MESSAGE)
             return
         
         try:
             # Test if the binary exists and is executable
-            if not os.path.exists(trufflehog_path):
-                self._trufflehog_status_label.setText("TruffleHog: File not found")
-                JOptionPane.showMessageDialog(self._main_panel, "TruffleHog binary not found at: " + trufflehog_path, "Error", JOptionPane.ERROR_MESSAGE)
+            if not os.path.exists(semgrep_path):
+                self._semgrep_status_label.setText("Semgrep: File not found")
+                JOptionPane.showMessageDialog(self._main_panel, "Semgrep binary not found at: " + semgrep_path, "Error", JOptionPane.ERROR_MESSAGE)
                 return
             
-            if not os.access(trufflehog_path, os.X_OK):
-                self._trufflehog_status_label.setText("TruffleHog: Not executable")
-                JOptionPane.showMessageDialog(self._main_panel, "TruffleHog binary is not executable: " + trufflehog_path, "Error", JOptionPane.ERROR_MESSAGE)
+            if not os.access(semgrep_path, os.X_OK):
+                self._semgrep_status_label.setText("Semgrep: Not executable")
+                JOptionPane.showMessageDialog(self._main_panel, "Semgrep binary is not executable: " + semgrep_path, "Error", JOptionPane.ERROR_MESSAGE)
                 return
             
-            # Test if it's a valid TruffleHog binary using official method
-            if self._verify_trufflehog_path(trufflehog_path):
+            # Test if it's a valid Semgrep binary
+            if self._verify_semgrep_path(semgrep_path):
                 # Get version info for display
                 try:
-                    proc = subprocess.Popen([trufflehog_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    proc = subprocess.Popen([semgrep_path, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                     stdout_data, stderr_data = proc.communicate()
                     version_info = (stdout_data + stderr_data).decode('utf-8', errors='ignore').strip()
                 except:
-                    version_info = "trufflehog"
+                    version_info = "semgrep"
                 
-                self._trufflehog_status_label.setText("TruffleHog: " + version_info)
-                JOptionPane.showMessageDialog(self._main_panel, "TruffleHog test successful!\n" + version_info, "Success", JOptionPane.INFORMATION_MESSAGE)
-                self._log_message("TruffleHog test successful: " + version_info)
+                self._semgrep_status_label.setText("Semgrep: " + version_info)
+                JOptionPane.showMessageDialog(self._main_panel, "Semgrep test successful!\n" + version_info, "Success", JOptionPane.INFORMATION_MESSAGE)
+                self._log_message("Semgrep test successful: " + version_info)
             else:
-                self._trufflehog_status_label.setText("TruffleHog: Invalid binary")
-                JOptionPane.showMessageDialog(self._main_panel, "Invalid TruffleHog binary at: " + trufflehog_path, "Error", JOptionPane.ERROR_MESSAGE)
-                self._log_message("TruffleHog test failed: binary not valid")
+                self._semgrep_status_label.setText("Semgrep: Invalid binary")
+                JOptionPane.showMessageDialog(self._main_panel, "Invalid Semgrep binary at: " + semgrep_path, "Error", JOptionPane.ERROR_MESSAGE)
+                self._log_message("Semgrep test failed: binary not valid")
                 
         except subprocess.TimeoutExpired:
-            self._trufflehog_status_label.setText("TruffleHog: Timeout")
-            JOptionPane.showMessageDialog(self._main_panel, "TruffleHog test timeout", "Error", JOptionPane.ERROR_MESSAGE)
-            self._log_message("TruffleHog test timeout")
+            self._semgrep_status_label.setText("Semgrep: Timeout")
+            JOptionPane.showMessageDialog(self._main_panel, "Semgrep test timeout", "Error", JOptionPane.ERROR_MESSAGE)
+            self._log_message("Semgrep test timeout")
         except Exception as e:
-            self._trufflehog_status_label.setText("TruffleHog: Error")
-            JOptionPane.showMessageDialog(self._main_panel, "Error testing TruffleHog: " + str(e), "Error", JOptionPane.ERROR_MESSAGE)
-            self._log_message("Error testing TruffleHog: " + str(e))
+            self._semgrep_status_label.setText("Semgrep: Error")
+            JOptionPane.showMessageDialog(self._main_panel, "Error testing Semgrep: " + str(e), "Error", JOptionPane.ERROR_MESSAGE)
+            self._log_message("Error testing Semgrep: " + str(e))
     
-    def _browse_trufflehog_path(self):
-        """Open file chooser to select TruffleHog binary."""
+    def _browse_semgrep_path(self):
+        """Open file chooser to select Semgrep binary."""
         file_chooser = JFileChooser()
-        file_chooser.setDialogTitle("Select TruffleHog Binary")
+        file_chooser.setDialogTitle("Select Semgrep Binary")
         file_chooser.setFileSelectionMode(JFileChooser.FILES_ONLY)
         
-        # Set initial directory to common TruffleHog locations
-        current_path = self._trufflehog_path_field.getText().strip()
+        # Set initial directory to common Semgrep locations
+        current_path = self._semgrep_path_field.getText().strip()
         if current_path and os.path.exists(os.path.dirname(current_path)):
             file_chooser.setCurrentDirectory(java.io.File(os.path.dirname(current_path)))
         else:
             # Try common locations
-            common_paths = ["/usr/local/bin", "/usr/bin", "/opt/trufflehog", os.path.expanduser("~/.local/bin")]
+            common_paths = ["/usr/local/bin", "/usr/bin", "/home/gxavier/.local/bin", os.path.expanduser("~/.local/bin")]
             for path in common_paths:
                 if os.path.exists(path):
                     file_chooser.setCurrentDirectory(java.io.File(path))
@@ -867,12 +988,12 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
                 if file.isDirectory():
                     return True
                 name = file.getName().lower()
-                return (name == "trufflehog" or 
-                       name.startswith("trufflehog") or 
+                return (name == "semgrep" or 
+                       name.startswith("semgrep") or 
                        file.canExecute())
             
             def getDescription(self):
-                return "TruffleHog Binary (*trufflehog*)"
+                return "Semgrep Binary (*semgrep*)"
         
         file_chooser.setFileFilter(ExecutableFileFilter())
         
@@ -881,11 +1002,11 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             selected_file = file_chooser.getSelectedFile()
             if selected_file:
                 file_path = selected_file.getAbsolutePath()
-                self._trufflehog_path_field.setText(file_path)
-                self._log_message("Selected TruffleHog binary: " + file_path)
+                self._semgrep_path_field.setText(file_path)
+                self._log_message("Selected Semgrep binary: " + file_path)
                 
                 # Auto-test the selected binary
-                self._test_trufflehog()
+                self._test_semgrep()
     
     def _send_http_post(self, url, payload):
         """Send HTTP POST request using Java's built-in HTTP capabilities."""
@@ -961,8 +1082,9 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
     
     def _add_result_to_table(self, result):
         """Add scan result to the results table."""
-        verified_count = sum(1 for f in result['findings'] if f.get('Verified', False))
-        unverified_count = len(result['findings']) - verified_count
+        high_severity_count = sum(1 for f in result['findings'] if f.get('extra', {}).get('severity') == 'ERROR')
+        medium_severity_count = sum(1 for f in result['findings'] if f.get('extra', {}).get('severity') == 'WARNING')
+        low_severity_count = sum(1 for f in result['findings'] if f.get('extra', {}).get('severity') == 'INFO')
         
         status = "Success" if result['success'] else "Failed: " + str(result['error'])
         
@@ -970,8 +1092,8 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
             result['timestamp'],
             result['url'],
             len(result['findings']),
-            verified_count,
-            unverified_count,
+            high_severity_count,
+            medium_severity_count + low_severity_count,
             status
         ]
         
@@ -1002,7 +1124,7 @@ class BurpExtender(IBurpExtender, IHttpListener, ITab):
     
     def getTabCaption(self):
         """Return the tab caption."""
-        return "JSHunter"
+        return "JSHunter Semgrep"
     
     def getUiComponent(self):
         """Return the UI component."""
@@ -1035,19 +1157,19 @@ class SendToTelegramListener(ActionListener):
         self._extension._send_to_telegram_enabled = self._extension._send_to_telegram_checkbox.isSelected()
         self._extension._save_settings()
 
-class TestTruffleHogListener(ActionListener):
+class TestSemgrepListener(ActionListener):
     def __init__(self, extension):
         self._extension = extension
     
     def actionPerformed(self, event):
-        self._extension._test_trufflehog()
+        self._extension._test_semgrep()
 
-class BrowseTruffleHogListener(ActionListener):
+class BrowseSemgrepListener(ActionListener):
     def __init__(self, extension):
         self._extension = extension
     
     def actionPerformed(self, event):
-        self._extension._browse_trufflehog_path()
+        self._extension._browse_semgrep_path()
 
 class CopyFindingListener(ActionListener):
     def __init__(self, extension):
@@ -1125,7 +1247,7 @@ class ExportResultsListener(ActionListener):
     
     def actionPerformed(self, event):
         file_chooser = JFileChooser()
-        file_chooser.setSelectedFile(java.io.File("jshunter_results.json"))
+        file_chooser.setSelectedFile(java.io.File("jshunter_semgrep_results.json"))
         
         result = file_chooser.showSaveDialog(self._extension._main_panel)
         if result == JFileChooser.APPROVE_OPTION:
@@ -1187,21 +1309,21 @@ class ResultDetailsListener(MouseAdapter):
         findings_panel = JPanel(BorderLayout())
         findings_panel.setBorder(BorderFactory.createTitledBorder("Findings"))
         
-        column_names = ["Detector", "Verified", "Line", "Value"]
+        column_names = ["Rule ID", "Severity", "Line", "Value"]
         findings_model = DefaultTableModel(column_names, 0)
         
         findings_table = JTable(findings_model)
         findings_table.setRowSorter(TableRowSorter(findings_model))
         
         for finding in result['findings']:
-            detector_name = finding.get('DetectorName', 'Unknown')
-            raw_value = finding.get('Raw', '')
-            verified = finding.get('Verified', False)
-            line_number = finding.get('SourceMetadata', {}).get('Data', {}).get('Filesystem', {}).get('line', 0)
+            rule_id = finding.get('check_id', 'Unknown')
+            raw_value = finding.get('extra', {}).get('raw', '')
+            severity = finding.get('extra', {}).get('severity', 'UNKNOWN')
+            line_number = finding.get('start', {}).get('line', 0)
             
             row_data = [
-                detector_name,
-                "Yes" if verified else "No",
+                rule_id,
+                severity,
                 line_number if line_number > 0 else "",
                 raw_value[:100] + "..." if len(raw_value) > 100 else raw_value
             ]

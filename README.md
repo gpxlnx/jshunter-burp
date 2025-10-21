@@ -2,15 +2,15 @@
 
 <img width="1024" height="256" alt="image" src="https://github.com/user-attachments/assets/e69a4561-9ae1-4bc6-8810-8394594ed65b" />
 
-A powerful Burp Suite extension that automatically detects JavaScript URLs from HTTP traffic, scans them using TruffleHog for secrets detection, and sends findings to Discord webhooks in real-time.
+A powerful Burp Suite extension that automatically detects JavaScript URLs from HTTP traffic, scans them using TruffleHog for secrets detection, and sends findings to Telegram in real-time.
 
 ## Features
 
 - **Automatic JavaScript URL Detection**: Monitors HTTP traffic and automatically identifies JavaScript files
 - **TruffleHog Integration**: Scans JavaScript files for secrets using the powerful TruffleHog tool
-- **Discord Webhook Support**: Sends findings directly to Discord channels for real-time notifications
+- **Telegram Bot Integration**: Sends findings directly to Telegram channels for real-time notifications
 - **Live Results Display**: Shows scan results and findings in a clean, organized interface
-- **Configurable Settings**: Customize TruffleHog path, Discord webhook, and scanning behavior
+- **Configurable Settings**: Customize TruffleHog path, Telegram bot token and chat ID, and scanning behavior
 - **Verified vs Unverified Secrets**: Distinguishes between verified and unverified findings
 - **Persistent Settings**: Settings are saved across Burp Suite sessions
 - **Adjustable UI**: Resizable panels for better workflow
@@ -23,7 +23,7 @@ A powerful Burp Suite extension that automatically detects JavaScript URLs from 
 ### Process Flow
 1. **Burp Suite** monitors HTTP traffic and detects JavaScript URLs
 2. **TruffleHog** scans the JavaScript files for secrets and vulnerabilities
-3. **Discord** receives real-time alerts about discovered secrets
+3. **Telegram** receives real-time alerts about discovered secrets
 
 ### Detailed Workflow
 
@@ -37,8 +37,8 @@ graph TD
     F --> G{Secrets Found?}
     G -->|Yes| H[Add to Burp Findings]
     G -->|No| I[Clean Up Temp File]
-    H --> J{Discord Enabled?}
-    J -->|Yes| K[Send to Discord Webhook]
+    H --> J{Telegram Enabled?}
+    J -->|Yes| K[Send to Telegram]
     J -->|No| L[Display in UI]
     K --> L
     I --> D
@@ -102,25 +102,37 @@ choco install trufflehog
 
 1. **Open JSHunter Tab**: Navigate to the JSHunter tab in Burp Suite
 2. **Configure TruffleHog Path**: Set the path to your TruffleHog binary (default: `/usr/local/bin/trufflehog`)
-3. **Set Discord Webhook**: Add your Discord webhook URL for notifications
-4. **Enable Features**: Toggle auto-scanning and Discord notifications as needed
-5. **Test Configuration**: Use the "Test TruffleHog" and "Test Discord" buttons to verify setup
+3. **Set Telegram Bot Token**: Add your Telegram bot token (get it from @BotFather)
+4. **Set Telegram Chat ID**: Add your Telegram channel/chat ID where notifications will be sent
+5. **Enable Features**: Toggle auto-scanning and Telegram notifications as needed
+6. **Test Configuration**: Use the "Test TruffleHog" and "Test Telegram" buttons to verify setup
+
+### How to get Telegram Bot Token and Chat ID
+
+1. **Create a Bot**: Talk to [@BotFather](https://t.me/BotFather) on Telegram and use `/newbot` command
+2. **Get Token**: BotFather will give you a token like `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`
+3. **Get Chat ID**: 
+   - Add your bot to your channel as administrator
+   - Send a message to your channel
+   - Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+   - Find the `chat` object and copy the `id` field (it might be negative for channels)
 
 ## Usage
 
 1. **Start Monitoring**: The extension automatically monitors HTTP traffic when enabled
 2. **View Results**: Scan results appear in the JSHunter interface
 3. **Review Findings**: Click on findings to see details including secret type, line number, and verification status
-4. **Discord Notifications**: Verified and unverified secrets are sent to Discord with different formatting
+4. **Telegram Notifications**: Verified and unverified secrets are sent to Telegram with different formatting and emojis
 
 ## Settings
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | TruffleHog Path | Path to TruffleHog executable | `/usr/local/bin/trufflehog` |
-| Discord Webhook URL | Discord webhook for notifications | Empty |
+| Telegram Bot Token | Telegram bot token from @BotFather | Empty |
+| Telegram Chat ID | Telegram channel/chat ID for notifications | Empty |
 | Auto-scan JavaScript URLs | Automatically scan detected JS files | Enabled |
-| Send Findings to Discord | Send findings to Discord webhook | Enabled |
+| Send Findings to Telegram | Send findings to Telegram | Enabled |
 
 ## UI Features
 
@@ -131,10 +143,11 @@ choco install trufflehog
 
 ### Settings Panel
 - **TruffleHog Path**: Text field with browse button for easy path selection
-- **Discord Webhook URL**: Input field for Discord webhook configuration
+- **Telegram Bot Token**: Input field for Telegram bot token
+- **Telegram Chat ID**: Input field for Telegram channel/chat ID
 - **Auto-scan Toggle**: Enable/disable automatic JavaScript URL scanning
-- **Discord Notifications Toggle**: Enable/disable Discord webhook notifications
-- **Test Buttons**: Test TruffleHog and Discord webhook configurations
+- **Telegram Notifications Toggle**: Enable/disable Telegram notifications
+- **Test Buttons**: Test TruffleHog and Telegram bot configurations
 
 ### Findings Table
 - **Type**: Type of secret detected (API Key, Token, etc.)
@@ -145,15 +158,16 @@ choco install trufflehog
 - **Copy Secret**: Button to copy the secret to clipboard
 - **Clear Findings**: Button to clear all findings
 
-## Discord Integration
+## Telegram Integration
 
-The extension sends formatted messages to Discord when secrets are found:
+The extension sends formatted messages to Telegram when secrets are found:
 
 ### Verified Secrets
 ```
-**[VERIFIED] Verified Secrets** found in https://example.com/script.js
+🔴 *[VERIFIED] Verified Secrets*
+Found in: `https://example.com/script.js`
 
-**GitHub Token**
+*GitHub Token*
 ```
 ghp_***REDACTED***
 ```
@@ -162,9 +176,10 @@ Line: 42
 
 ### Unverified Secrets
 ```
-**[UNVERIFIED] Unverified Secrets** found in https://example.com/script.js
+🟡 *[UNVERIFIED] Unverified Secrets*
+Found in: `https://example.com/script.js`
 
-**API Key**
+*API Key*
 ```
 api_key: "***REDACTED***"
 ```
@@ -178,10 +193,11 @@ Line: 15
 - Check the path in extension settings
 - Use the "Test TruffleHog" button to verify
 
-### Discord Webhook Not Working
-- Verify the webhook URL is correct
-- Test with the "Test Discord" button
-- Check Discord server permissions
+### Telegram Not Working
+- Verify the bot token and chat ID are correct
+- Test with the "Test Telegram" button
+- Make sure your bot is added as administrator to your channel
+- Check that your chat ID is correct (might be negative for channels)
 
 ### No JavaScript URLs Detected
 - Ensure you're browsing websites with JavaScript files
@@ -242,11 +258,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Changelog
 
+### Version 2.0.0
+- **BREAKING CHANGE**: Replaced Discord webhook integration with Telegram bot integration
+- Added Telegram bot token and chat ID configuration
+- Improved notification formatting with emojis
+- Updated UI to support Telegram configuration
+- Maintained all existing features (TruffleHog scanning, automatic detection, etc.)
+
 ### Version 1.0.0
 - Initial release
 - Automatic JavaScript URL detection
 - TruffleHog integration
-- Discord webhook support
+- Discord webhook support (now replaced with Telegram)
 - Resizable UI panels
 - Persistent settings
 - Automatic file cleanup

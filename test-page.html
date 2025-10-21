@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSHunter Test Page</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 20px auto; padding: 0 20px; }
+        h1, h2 { color: #2c3e50; }
+        code { background-color: #f4f4f4; padding: 2px 6px; border-radius: 4px; }
+        .container { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        .instructions { background-color: #eaf5ff; border-left: 5px solid #3498db; padding: 15px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>JSHunter Secrets Test Page</h1>
+        <p>Esta página inclui arquivos JavaScript que contêm secrets falsos para testar a extensão JSHunter Burp.</p>
+        <p>Quando você navegar por esta página com o Burp Suite interceptando o tráfego, a extensão JSHunter deve:</p>
+        <ol>
+            <li>Detectar os arquivos <code>app.js</code> e <code>vendor.js</code>.</li>
+            <li>Escaneá-los com o TruffleHog.</li>
+            <li>Encontrar os secrets falsos.</li>
+            <li>Exibir os resultados na aba JSHunter no Burp Suite.</li>
+            <li>Enviar uma notificação para seu Discord (se configurado).</li>
+        </ol>
+
+        <h2>Scripts Carregados</h2>
+        <ul>
+            <li><code>scripts/app.js</code>: Contém uma chave de acesso AWS falsa.</li>
+            <li><code>scripts/vendor.js?version=1.2.3</code>: Contém um token do GitHub falso.</li>
+            <li>Script inline: Contém uma chave de API do Google falsa.</li>
+        </ul>
+    </div>
+
+    <div class="instructions">
+        <h2>Como Usar</h2>
+        <p>Siga os passos no arquivo <code>COMO_USAR_TESTE.md</code> que criei para você.</p>
+    </div>
+
+    <!-- Este script contém uma chave AWS falsa -->
+    <script src="scripts/app.js"></script>
+
+    <!-- Este script contém um token do GitHub falso -->
+    <script src="scripts/vendor.js?version=1.2.3"></script>
+
+    <!-- Este é um script inline com um secret -->
+    <script>
+        // Fake Google API Key
+        const apiKey = "AIzaSyC...fake...key...12345";
+        console.log("Script inline carregado com a chave:", apiKey);
+    </script>
+
+</body>
+</html>

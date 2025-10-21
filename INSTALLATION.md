@@ -37,14 +37,21 @@ choco install trufflehog
 # Or download from GitHub releases
 ```
 
-### Discord Webhook Setup
+### Telegram Bot Setup
 
-1. Go to your Discord server
-2. Right-click on the channel where you want notifications
-3. Select **Edit Channel**
-4. Go to **Integrations** → **Webhooks**
-5. Click **Create Webhook**
-6. Copy the webhook URL
+1. **Create a Bot:**
+   - Open Telegram and search for [@BotFather](https://t.me/BotFather)
+   - Send `/newbot` command
+   - Follow the instructions to create your bot
+   - Save the bot token (format: `123456789:ABCdefGHIjklMNOpqrsTUVwxyz`)
+
+2. **Get Chat ID:**
+   - Create a channel or group for notifications (or use an existing one)
+   - Add your bot to the channel as administrator
+   - Send a test message to your channel
+   - Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`
+   - Find the `chat` object in the JSON response
+   - Copy the `id` field (may be negative for channels)
 
 ## Step-by-Step Installation
 
@@ -83,18 +90,20 @@ wget https://raw.githubusercontent.com/yourusername/jshunter-burp/main/jshunter_
    - Default: `/usr/local/bin/trufflehog`
    - Use the "Browse" button to find the file
 3. **Test TruffleHog**: Click "Test" button to verify TruffleHog is working
-4. **Set Discord Webhook**: Enter your Discord webhook URL
-5. **Test Discord**: Click "Test Discord" button to verify webhook
-6. **Save Settings**: Click "Save Settings" button
+4. **Set Telegram Bot Token**: Enter your Telegram bot token from @BotFather
+5. **Set Telegram Chat ID**: Enter your channel/chat ID
+6. **Test Telegram**: Click "Test" button next to Chat ID to verify connection
+7. **Enable Features**: Check "Send findings to Telegram" if you want automatic notifications
 
 ## Configuration Options
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | TruffleHog Path | Path to TruffleHog executable | `/usr/local/bin/trufflehog` |
-| Discord Webhook URL | Discord webhook for notifications | Empty |
+| Telegram Bot Token | Telegram bot token from @BotFather | Empty |
+| Telegram Chat ID | Channel/chat ID for notifications | Empty |
 | Auto-scan JavaScript URLs | Automatically scan detected JS files | Enabled |
-| Send Findings to Discord | Send findings to Discord webhook | Enabled |
+| Send Findings to Telegram | Send findings to Telegram | Enabled |
 
 ## Usage
 
@@ -102,7 +111,7 @@ wget https://raw.githubusercontent.com/yourusername/jshunter-burp/main/jshunter_
 2. **Browse Websites**: Navigate to websites with JavaScript files
 3. **View Results**: Scan results appear in the JSHunter interface
 4. **Review Findings**: Click on findings to see details
-5. **Discord Notifications**: Verified and unverified secrets are sent to Discord
+5. **Telegram Notifications**: Verified and unverified secrets are sent to Telegram with emojis
 
 ## Troubleshooting
 
@@ -118,11 +127,12 @@ wget https://raw.githubusercontent.com/yourusername/jshunter-burp/main/jshunter_
 - **Test Button**: Use the "Test TruffleHog" button to verify
 - **Permissions**: Ensure TruffleHog binary is executable
 
-### Discord Webhook Not Working
-- **Verify URL**: Check that the webhook URL is correct
-- **Test Button**: Use the "Test Discord" button to verify
-- **Server Permissions**: Ensure the webhook has permission to send messages
-- **Channel Access**: Verify the webhook is in the correct channel
+### Telegram Not Working
+- **Verify Token**: Check that the bot token is correct
+- **Verify Chat ID**: Ensure the chat ID is correct (may be negative for channels)
+- **Test Button**: Use the "Test Telegram" button to verify connection
+- **Bot Permissions**: Ensure the bot is added as administrator to your channel
+- **API Access**: Verify you can access `https://api.telegram.org/bot<TOKEN>/getMe`
 
 ### No JavaScript URLs Detected
 - **Auto-scan Enabled**: Check that auto-scanning is enabled in settings
@@ -144,12 +154,13 @@ The extension uses the following TruffleHog command:
 trufflehog filesystem "/path/to/file" --json
 ```
 
-### Discord Message Format
-The extension sends formatted messages to Discord:
-- **Verified Secrets**: Marked with `[VERIFIED]`
-- **Unverified Secrets**: Marked with `[UNVERIFIED]`
-- **Secret Redaction**: Sensitive values are redacted in messages
+### Telegram Message Format
+The extension sends formatted messages to Telegram:
+- **Verified Secrets**: Marked with 🔴 `[VERIFIED]` and red circle emoji
+- **Unverified Secrets**: Marked with 🟡 `[UNVERIFIED]` and yellow circle emoji
+- **Markdown Formatting**: Uses Telegram Markdown for rich text
 - **Line Numbers**: Shows the line where the secret was found
+- **Code Blocks**: Secrets are displayed in code blocks for easy copying
 
 ### File Cleanup
 - Temporary JavaScript files are automatically deleted after scanning
